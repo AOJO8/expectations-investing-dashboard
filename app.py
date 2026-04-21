@@ -184,30 +184,18 @@ def fetch_company_data(ticker: str):
     last_err = None
     for attempt in range(4):
         try:
-            session = None
-            try:
-                import requests
-                session = requests.Session()
-                session.headers.update({
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                  "Chrome/120.0.0.0 Safari/537.36"
-                })
-            except Exception:
-                pass
-
-            stock = yf.Ticker(ticker, session=session) if session else yf.Ticker(ticker)
+            stock = yf.Ticker(ticker)
             info = stock.info
-            # Confirm we actually got data (not an empty dict)
-            if not info or info.get("regularMarketPrice") is None and info.get("currentPrice") is None and info.get("previousClose") is None:
-                raise ValueError("Empty response from Yahoo Finance")
+            # Confirm we actually got meaningful data
+            if not info or len(info) < 5:
+                raise ValueError("Empty or minimal response from Yahoo Finance")
             break
         except Exception as e:
             last_err = e
             wait = 2 ** attempt + random.uniform(0, 1)
             time.sleep(wait)
     else:
-        raise Exception(f"Rate limited by Yahoo Finance after 4 attempts. Please wait a minute and try again. ({last_err})")
+        raise Exception(f"Could not load data for {ticker} after 4 attempts. Please wait a moment and try again. ({last_err})")
 
     # Financial statements
     income_stmt = stock.income_stmt
