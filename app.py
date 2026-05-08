@@ -206,9 +206,20 @@ def fetch_company_data(ticker: str):
     data = {}
     data["name"] = info.get("longName", info.get("shortName", ticker))
     data["price"] = info.get("currentPrice", info.get("previousClose", 0))
-    data["shares_outstanding"] = info.get("sharesOutstanding", 0)
-    data["market_cap"] = data["price"] * data["shares_outstanding"] if data["shares_outstanding"] else 0
     data["currency"] = info.get("currency", "USD")
+
+    # Yahoo Finance returns UK stock prices in PENCE (GBp), not pounds (GBP).
+    # Financial statements are always in GBP, so convert price to pounds to
+    # keep the PIE model comparison consistent.
+    if data["currency"] == "GBp":
+        data["price"] = data["price"] / 100
+        data["currency"] = "GBP"
+
+    data["shares_outstanding"] = info.get("sharesOutstanding", 0)
+    # Use Yahoo's reported market cap (already in home currency) rather than
+    # price x shares, which breaks when Yahoo returns price in pence.
+    reported_mkt_cap = info.get("marketCap", 0)
+    data["market_cap"] = reported_mkt_cap if reported_mkt_cap else data["price"] * data["shares_outstanding"]
     data["sector"] = info.get("sector", "N/A")
     data["industry"] = info.get("industry", "N/A")
     data["beta"] = info.get("beta", 1.0)
@@ -499,7 +510,7 @@ st.sidebar.markdown("---")
 ticker_input = st.sidebar.text_input(
     "🔍 Company Ticker",
     value="AAPL",
-    help="Enter a stock ticker symbol (e.g., AAPL, MSFT, GOOGL)"
+    help="Enter a stock ticker (e.g., AAPL, MSFT). For UK stocks add .L suffix (e.g., HSBA.L, BP.L, VOD.L)"
 )
 
 load_button = st.sidebar.button("Load Company Data", use_container_width=True)
